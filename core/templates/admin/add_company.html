@@ -1,0 +1,20 @@
+{% extends 'admin/admin_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block admin_content %}
+<div class="card shadow">
+    <div class="card-header">
+        <h3 class="mb-0"><i class="fas fa-building-user me-2"></i>Add New Company</h3>
+    </div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Add Company</button>
+                <a href="{% url 'core:manage_companies' %}" class="btn btn-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

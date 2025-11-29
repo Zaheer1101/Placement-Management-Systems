@@ -1,0 +1,71 @@
+{% extends 'admin/admin_base.html' %}
+{% load static %}
+
+{% block admin_content %}
+<h1 class="fw-bold mb-4"><i class="fas fa-chart-line me-2"></i>Advanced Analytics</h1>
+<div class="row g-4">
+    <div class="col-lg-12">
+        <div class="card shadow-sm"><div class="card-header"><h5 class="mb-0">Placement Rate by Branch</h5></div>
+            <div class="card-body"><canvas id="branchPlacementChart" style="min-height:350px;"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm"><div class="card-header"><h5 class="mb-0">Top Company Engagement</h5></div>
+            <div class="card-body"><canvas id="companyJobsChart"></canvas></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Use the UMD bundle so Chart is available as a global `Chart` in non-ESM environments -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+<script>
+    // Safe JSON parsing helper (returns [] on failure)
+    function safeParse(jsonString) {
+        try {
+            // If Django leaves an empty string, fallback to '[]'
+            return JSON.parse(jsonString || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // Data passed from the Django view (escaped for safety)
+    const branchLabels = safeParse('{{ branch_labels|escapejs }}');
+    const branchTotalData = safeParse('{{ branch_total_data|escapejs }}');
+    const branchPlacedData = safeParse('{{ branch_placed_data|escapejs }}');
+
+    const companyLabels = safeParse('{{ company_labels|escapejs }}');
+    const companyJobCounts = safeParse('{{ company_job_counts|escapejs }}');
+
+    // Ensure the canvas elements exist before trying to render
+    const branchCanvas = document.getElementById('branchPlacementChart');
+    const companyCanvas = document.getElementById('companyJobsChart');
+
+    if (branchCanvas) {
+        new Chart(branchCanvas, {
+            type: 'bar',
+            data: {
+                labels: branchLabels,
+                datasets: [
+                    { label: 'Total Students', data: branchTotalData, backgroundColor: 'rgba(0, 123, 255, 0.5)' },
+                    { label: 'Placed Students', data: branchPlacedData, backgroundColor: 'rgba(25, 135, 84, 0.7)' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    if (companyCanvas) {
+        new Chart(companyCanvas, {
+            type: 'bar',
+            data: {
+                labels: companyLabels,
+                datasets: [{ label: 'Jobs Posted', data: companyJobCounts, backgroundColor: 'rgba(23, 162, 184, 0.6)' }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+        });
+    }
+</script>
+{% endblock %}

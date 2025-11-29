@@ -1,0 +1,78 @@
+{% extends 'company/company_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block company_content %}
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h3 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Schedule Interview for "{{ job.title }}"</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Set the interview details below. An email notification will be sent to all shortlisted candidates for this job.</p>
+        
+        <h5 class="mt-4 fw-bold">Shortlisted Candidates ({{ shortlisted_count }})</h5>
+        {% if shortlisted_applications %}
+        <ul class="list-group mb-4">
+            {% for app in shortlisted_applications %}
+                <li class="list-group-item">{{ app.student.user.get_full_name }} ({{ app.student.user.email }})</li>
+            {% endfor %}
+        </ul>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <fieldset class="border p-4 rounded">
+                <legend class="w-auto px-2 h6 fw-bold">Interview Details</legend>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="id_interview_date" class="form-label">Interview Date</label>
+                        <input type="date" name="interview_date" id="id_interview_date" class="form-control" value="{{ form.interview_date.value|default:'' }}" required>
+                        {% if form.interview_date.errors %}
+                            <div class="text-danger small">{{ form.interview_date.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_interview_time" class="form-label">Interview Time</label>
+                        <input type="time" name="interview_time" id="id_interview_time" class="form-control" value="{{ form.interview_time.value|default:'' }}" required>
+                        {% if form.interview_time.errors %}
+                            <div class="text-danger small">{{ form.interview_time.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="fw-bold">Selected Interview:</span>
+                    <span id="interviewPreview" class="text-primary"></span>
+                </div>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    function updatePreview() {
+                        var date = document.getElementById('id_interview_date').value;
+                        var time = document.getElementById('id_interview_time').value;
+                        var preview = '';
+                        if(date && time) {
+                            preview = date + ' at ' + time;
+                        }
+                        document.getElementById('interviewPreview').textContent = preview;
+                    }
+                    document.getElementById('id_interview_date').addEventListener('input', updatePreview);
+                    document.getElementById('id_interview_time').addEventListener('input', updatePreview);
+                    updatePreview();
+                });
+                </script>
+                <div class="row">
+                    <div class="col-md-6">{{ form.round_name|as_crispy_field }}</div>
+                    <div class="col-md-6">{{ form.mode|as_crispy_field }}</div>
+                </div>
+                {{ form.venue_or_link|as_crispy_field }}
+                {{ form.additional_instructions|as_crispy_field }}
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary btn-lg mt-4"><i class="fas fa-paper-plane me-2"></i>Schedule & Notify Candidates</button>
+        </form>
+        {% else %}
+        <div class="alert alert-warning mt-3">
+             No candidates have been shortlisted for this job yet. Please shortlist candidates from the applicants list before scheduling an interview.
+        </div>
+        <a href="{% url 'core:job_applicants' job.id %}" class="btn btn-secondary">Back to Applicants</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

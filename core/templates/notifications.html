@@ -1,0 +1,182 @@
+
+{% extends 'base.html' %}
+{% block title %}Notifications | {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold"><i class="fas fa-bell me-2"></i>Notifications</h1>
+        <div class="d-flex" role="group" aria-label="Notification actions">
+            <!-- Progressive enhancement: provide form fallback when JS is disabled -->
+            <form id="markAllForm" method="post" action="{% url 'core:mark_all_notifications_read' %}" class="me-2">
+                {% csrf_token %}
+                <button id="markAllRead" type="submit" class="btn btn-sm btn-outline-primary" aria-label="Mark all notifications as read">Mark all as read</button>
+            </form>
+
+            <form id="clearAllForm" method="post" action="{% url 'core:clear_all_notifications' %}">
+                {% csrf_token %}
+                <button id="clearAll" type="submit" class="btn btn-sm btn-outline-danger" aria-label="Clear all notifications">Clear all</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="notificationList" class="list-group shadow-sm" role="list">
+        {% if notifications %}
+            {% for n in notifications %}
+                <div class="list-group-item list-group-item-action {% if not n.read %}list-group-item-warning{% endif %}" aria-current="true" role="listitem" tabindex="0">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">
+                            {% if n.type == 'shortlisted' %}
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                            {% elif n.type == 'job' %}
+                                <i class="fas fa-briefcase text-primary me-2"></i>
+                            {% elif n.type == 'interview' %}
+                                <i class="fas fa-calendar-alt text-info me-2"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle text-secondary me-2"></i>
+                            {% endif %}
+                            {{ n.title }}
+                        </h5>
+                        <span class="badge bg-secondary align-self-center">{{ n.time_ago }}</span>
+                    </div>
+                    <p class="mb-1">{{ n.message|safe }}</p>
+                    {% if n.action %}
+                        <a href="{{ n.action.url }}" class="btn btn-sm btn-outline-success mt-2" aria-label="{{ n.action.label }}">{{ n.action.label }}</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="list-group-item text-center p-5 text-muted">
+                <i class="fas fa-bell-slash fa-3x mb-3"></i>
+                <h4>No notifications yet.</h4>
+                <p>We'll let you know when something important happens.</p>
+            </div>
+        {% endif %}
+    </div>
+    <div id="loader" class="text-center" style="display:none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Loader overlay for clearer UX -->
+<div id="loaderOverlay" class="loader-overlay" aria-hidden="true" hidden>
+    <div class="loader-content text-center">
+        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+        <div class="mt-2">Processing...</div>
+    </div>
+</div>
+
+<!-- ARIA live region for inline feedback -->
+<div id="notifStatus" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+<style>
+.loader-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; z-index:1050;
+}
+.loader-content{ background:rgba(255,255,255,0.95); padding:1.25rem 1.5rem; border-radius:.5rem; box-shadow:0 6px 18px rgba(0,0,0,.15);}
+.list-group-item:focus{ outline:3px solid rgba(13,110,253,.25); }
+</style>
+
+<script>
+// Utility: read CSRF token from cookie (Django default)
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
+const csrftoken = getCookie('csrftoken');
+
+async function postJson(url, data = {}){
+    const opts = {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    };
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    return res.json();
+}
+
+function showOverlay(){
+    const ov = document.getElementById('loaderOverlay');
+    if(ov){ ov.hidden = false; ov.setAttribute('aria-hidden','false'); }
+}
+function hideOverlay(){
+    const ov = document.getElementById('loaderOverlay');
+    if(ov){ ov.hidden = true; ov.setAttribute('aria-hidden','true'); }
+}
+
+function setStatusMessage(msg){
+    const s = document.getElementById('notifStatus');
+    if(s){ s.textContent = msg; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const markForm = document.getElementById('markAllForm');
+    const clearForm = document.getElementById('clearAllForm');
+    const markBtn = document.getElementById('markAllRead');
+    const clearBtn = document.getElementById('clearAll');
+
+    if(markForm){
+        markForm.addEventListener('submit', async (e)=>{
+            // If JS enabled, intercept and use AJAX; otherwise form will POST normally
+            e.preventDefault();
+            try{
+                markBtn.disabled = true;
+                showOverlay();
+                await postJson(markForm.action, {});
+                setStatusMessage('All notifications marked as read.');
+                location.reload();
+            }catch(err){
+                console.error(err);
+                alert('Could not mark notifications as read.');
+            }finally{
+                hideOverlay();
+                markBtn.disabled = false;
+            }
+        });
+    }
+
+    if(clearForm){
+        clearForm.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            if(!confirm('Are you sure you want to clear all notifications? This cannot be undone.')) return;
+            try{
+                clearBtn.disabled = true;
+                showOverlay();
+                await postJson(clearForm.action, {});
+                setStatusMessage('All notifications cleared.');
+                location.reload();
+            }catch(err){
+                console.error(err);
+                alert('Could not clear notifications.');
+            }finally{
+                hideOverlay();
+                clearBtn.disabled = false;
+            }
+        });
+    }
+
+    // Keyboard: allow Enter to activate action links inside a notification
+    document.getElementById('notificationList').addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter'){
+            const target = e.target;
+            const link = target.querySelector('a');
+            if(link) link.click();
+        }
+    });
+});
+</script>
+{% endblock %}

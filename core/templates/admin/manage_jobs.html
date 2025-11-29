@@ -1,0 +1,125 @@
+{% extends 'admin/admin_base.html' %}
+
+{% block admin_content %}
+<div class="card shadow-sm">
+    <div class="card-header"><h3 class="mb-0"><i class="fas fa-briefcase me-2"></i>All Job Postings</h3></div>
+    <div class="card-body">
+        <form method="get" class="row g-3 mb-4 p-3 bg-light border rounded">
+            <div class="col-md-4"><input type="text" name="title" class="form-control" placeholder="Search by job title..." value="{{ request.GET.title|default:'' }}"></div>
+            <div class="col-md-4"><input type="text" name="company" class="form-control" placeholder="Filter by company..." value="{{ request.GET.company|default:'' }}"></div>
+            <div class="col-md-4"><button type="submit" class="btn btn-info w-100">Filter Jobs</button></div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr><th>Job Title</th><th>Company</th><th>Posted On</th><th class="text-center">Applicants</th><th class="text-center">Status</th><th class="text-center">Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for job in all_jobs_page_obj %}
+                    <tr>
+                        <td class="fw-bold">{{ job.title }}</td>
+                        <td>{{ job.company.name }}</td>
+                        <td>{{ job.posted_at|date:"M d, Y" }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-primary p-2">{{ job.applications.count }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if not job.is_approved %}
+                                <span class="badge bg-warning">Pending</span>
+                            {% elif job.application_deadline < today %}
+                                <span class="badge bg-secondary">Closed</span>
+                            {% else %}
+                                <span class="badge bg-success">Open</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary" title="Edit" data-bs-toggle="modal" data-bs-target="#editJobModal{{ job.id }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center p-4">No jobs found in the system.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Pagination Controls -->
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center mt-4">
+                {% if all_jobs_page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ all_jobs_page_obj.previous_page_number }}">Previous</a></li>
+                {% else %}
+                     <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">Page {{ all_jobs_page_obj.number }} of {{ all_jobs_page_obj.paginator.num_pages }}</span></li>
+                {% if all_jobs_page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ all_jobs_page_obj.next_page_number }}">Next</a></li>
+                {% else %}
+                    <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+{# Render the Edit Job modals outside of the table to avoid clipping/sticking issues #}
+{% for job in all_jobs_page_obj %}
+<div class="modal fade" id="editJobModal{{ job.id }}" tabindex="-1" aria-labelledby="editJobModalLabel{{ job.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'core:edit_job_status' job.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editJobModalLabel{{ job.id }}">Edit Job Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="status{{ job.id }}" class="form-label">Status</label>
+                        <select class="form-select" id="status{{ job.id }}" name="status">
+                            <option value="pending" {% if not job.is_approved %}selected{% endif %}>Pending</option>
+                            <option value="open" {% if job.is_approved and job.application_deadline >= today %}selected{% endif %}>Open</option>
+                            <option value="closed" {% if job.is_approved and job.application_deadline < today %}selected{% endif %}>Closed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+// Move modals to document.body to avoid being clipped by parents with transforms/overflow
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        document.querySelectorAll('[id^="editJobModal"]').forEach(function(modalEl) {
+            // Only move if not already a direct child of body
+            if (modalEl.parentElement !== document.body) {
+                document.body.appendChild(modalEl);
+            }
+        });
+    } catch (e) {
+        // fail silently
+        console.error('Error moving modals to body:', e);
+    }
+});
+
+// Optional: increase z-index if themes override Bootstrap stacking
+(function(){
+    var css = '.modal{ z-index:2147483646 !important; } .modal-backdrop{ z-index:2147483645 !important; }';
+    var style = document.createElement('style');
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+})();
+</script>
+{% endblock %}

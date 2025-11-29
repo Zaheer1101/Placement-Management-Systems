@@ -1,0 +1,2 @@
+username,email,first_name,last_name,password,roll_number,cgpa,phone_number,github_url,linkedin_url,resume
+student1,student1@example.com,John,Doe,password123,CSE001,8.5,1234567890,https://github.com/student1,https://linkedin.com/in/student1,
